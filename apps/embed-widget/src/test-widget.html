@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CDP Widget Test</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 40px;
+      background: #f0f2f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+    }
+    h1 { margin-bottom: 40px; color: #1a1a1a; }
+    .debug-panel {
+      margin-top: 40px;
+      width: 100%;
+      max-width: 600px;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .debug-panel h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    pre { background: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <h1>CDP Filter Widget Test</h1>
+
+  <!-- The Web Component -->
+  <!-- Replace src with the actual relative path to the built JS file after building -->
+  <cdp-filter-widget 
+    api-key="test_key_123" 
+    base-url="http://localhost:3000"
+  ></cdp-filter-widget>
+
+  <div class="debug-panel">
+    <h3>Data Selected Event Log</h3>
+    <div id="log">Waiting for interaction...</div>
+  </div>
+
+  <!-- Load the widget (assuming nx build output) -->
+  <script src="../../../dist/apps/embed-widget/polyfills.js" type="module"></script>
+  <script src="../../../dist/apps/embed-widget/main.js" type="module"></script>
+
+  <script>
+    const widget = document.querySelector('cdp-filter-widget');
+    const logEl = document.getElementById('log');
+
+    widget.addEventListener('dataSelected', (event) => {
+      console.log('Data Selected:', event.detail);
+      logEl.innerHTML = `<pre>${JSON.stringify(event.detail, null, 2)}</pre>`;
+    });
+  </script>
+</body>
+</html>

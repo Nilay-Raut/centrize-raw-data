@@ -1,0 +1,123 @@
+/* ─── Base reset ───────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+  color: #111827;
+  background: #f3f4f6;
+}
+
+/* ─── Shared button utilities ──────────────────────────────────────────────────
+ *
+ * Defined once here so every feature component can use them without re-declaring.
+ * These are global (not scoped) — they apply to any element with the class name.
+ * Individual components can override padding/size via their own scoped styles.
+ *
+ * Classes available:
+ *   .btn-primary    — indigo filled, main actions
+ *   .btn-outline    — white/bordered, secondary actions
+ *   .btn-outline-sm — compact bordered, used for inline links/badges
+ *   .btn-ghost      — transparent, tertiary/back actions
+ *   .btn-danger     — red filled, destructive actions
+ *   .btn-danger-sm  — compact red border, row-level destructive actions
+ * ────────────────────────────────────────────────────────────────────────── */
+
+.btn-primary {
+  padding: 9px 20px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: inline-flex;
+  align-items: center;
+}
+.btn-primary:hover:not(:disabled) { background: #4f46e5; }
+.btn-primary:disabled              { opacity: 0.5; cursor: not-allowed; }
+
+.btn-outline {
+  padding: 9px 20px;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+.btn-outline:hover:not(:disabled) { background: #f9fafb; }
+.btn-outline:disabled              { opacity: 0.5; cursor: not-allowed; }
+
+.btn-outline-sm {
+  padding: 5px 12px;
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 12px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.btn-outline-sm:hover { background: #f9fafb; }
+
+.btn-ghost {
+  padding: 9px 20px;
+  background: transparent;
+  color: #6b7280;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn-ghost:hover { color: #374151; }
+
+.btn-danger {
+  padding: 9px 20px;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-danger:hover { background: #b91c1c; }
+
+.btn-danger-sm {
+  padding: 4px 10px;
+  background: #fff;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-danger-sm:hover:not(:disabled) { background: #fef2f2; }
+.btn-danger-sm:disabled             { opacity: 0.5; }
+
+/* ─── Page layout utilities ────────────────────────────────────────────────── */
+
+/* Standard page heading — used in every feature page */
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+/* Row with title on left, action button on right */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

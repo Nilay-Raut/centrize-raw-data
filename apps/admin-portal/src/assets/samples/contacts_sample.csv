@@ -1,0 +1,5 @@
+phone,email,name,language,tags,opt_out_whatsapp,opt_out_email,company,position
++919876543210,john@example.com,John Doe,en,"lead,web",no,no,Acme Corp,CEO
++919876543211,jane@smith.com,Jane Smith,hi,"customer,ios-app",yes,no,Globex,Manager
++14155552671,bob@globex.com,Bob Johnson,en,vip,no,no,Globex,Director
++442071234567,alice@wonderland.uk,Alice Brown,en,"support,uk",no,yes,Underworld,Agent

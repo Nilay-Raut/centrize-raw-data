@@ -1,0 +1,55 @@
+/**
+ * ExportService — streams a CSV of filtered contacts directly to the HTTP response.
+ *
+ * CRITICAL: This service STREAMS — it never loads the full result set into memory.
+ * A 5-lakh row export must not crash or significantly increase Node.js heap usage.
+ *
+ * Pipeline:
+ *   PostgreSQL cursor (Knex stream)
+ *     → fast-csv formatter
+ *       → res (HTTP response stream)
+ *
+ * Rules:
+ *   - stream() is the only method. It pipes and resolves when done.
+ *   - On pipeline error, the error is forwarded to the Express error handler.
+ *   - Tags array is serialised as semicolon-separated: "delhi;premium;overdue"
+ */
+
+import { pipeline } from 'node:stream/promises';
+import { format as csvFormat } from 'fast-csv';
+import type { Response } from 'express';
+import { streamContactsQuery } from '../db/queries/contacts';
+import type { ContactFilter } from '../types/models';
+
+const EXPORT_COLUMNS = [
+  'id', 'phone', 'email', 'name', 'language',
+  'segment', 'tags', 'opt_out_whatsapp', 'opt_out_email', 'opt_out_call',
+  'company_name', 'designation', 'industry', 'sector', 'sub_sector',
+  'address', 'city', 'state', 'pincode', 'gender', 'dob', 'website', 'linkedin_url'
+] as const;
+
+type ExportRow = Record<typeof EXPORT_COLUMNS[number], unknown>;
+
+export class ExportService {
+  /**
+   * Stream a filtered contact list as CSV to the HTTP response.
+   *
+   * Caller must set Content-Disposition and Content-Type headers before calling this.
+   * This method pipes until done, then returns. Errors are thrown (caught by the route).
+   */
+  async stream(filter: ContactFilter, res: Response): Promise<void> {
+    const dbStream = streamContactsQuery(filter);
+
+    const csvStream = csvFormat<ExportRow, ExportRow>({
+      headers: [...EXPORT_COLUMNS],
+    }).transform((row: ExportRow) => ({
+      ...row,
+      // Convert PostgreSQL text[] to semicolon-delimited string
+      tags: Array.isArray(row['tags']) ? (row['tags'] as string[]).join(';') : '',
+    }));
+
+    await pipeline(dbStream, csvStream, res);
+  }
+}
+
+export const exportService = new ExportService();
