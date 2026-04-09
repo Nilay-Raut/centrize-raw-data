@@ -164,12 +164,14 @@ export interface AdminUser {
   id: string;
   email: string;
   password_hash: string;
+  can_view_raw: boolean;
   created_at: string;
 }
 
 export interface JwtPayload {
-  sub: string;   // Admin user ID
+  sub: string;          // Admin user ID
   email: string;
+  canViewRaw: boolean;  // Whether this admin can export raw (unmasked) data
   iat: number;
   exp: number;
 }

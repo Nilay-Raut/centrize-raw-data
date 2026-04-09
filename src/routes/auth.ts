@@ -59,7 +59,7 @@ router.post(
     }
 
     const token = jwt.sign(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, canViewRaw: user.can_view_raw },
       env.jwtSecret,
       {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any

@@ -15,10 +15,10 @@
  *   - Tags array is serialised as semicolon-separated: "delhi;premium;overdue"
  */
 
-import { pipeline } from 'node:stream/promises';
+import { Readable } from 'node:stream';
 import { format as csvFormat } from 'fast-csv';
 import type { Response } from 'express';
-import { streamContactsQuery } from '../db/queries/contacts';
+import { checkDbConnection, streamContactsQuery } from '../db/queries/contacts';
 import type { ContactFilter } from '../types/models';
 
 const EXPORT_COLUMNS = [
@@ -32,23 +32,69 @@ type ExportRow = Record<typeof EXPORT_COLUMNS[number], unknown>;
 
 export class ExportService {
   /**
+   * Verifies DB is reachable. Call this BEFORE setting response headers so
+   * a DB-down failure can still return a clean JSON error to the client.
+   */
+  async preflight(): Promise<void> {
+    await checkDbConnection();
+  }
+
+  /**
    * Stream a filtered contact list as CSV to the HTTP response.
    *
-   * Caller must set Content-Disposition and Content-Type headers before calling this.
-   * This method pipes until done, then returns. Errors are thrown (caught by the route).
+   * Caller must:
+   *   1. Call preflight() first (before setting headers)
+   *   2. Set Content-Disposition and Content-Type headers
+   *   3. Await this — it resolves when done, throws on error
+   *
+   * Uses manual pipe() instead of pipeline() so that res is NOT destroyed
+   * if the DB stream errors before writing the first byte. That keeps
+   * res.headersSent === false, allowing the route to still send a JSON error.
+   *
+   * Client disconnect is handled internally: the DB stream is destroyed so
+   * we stop reading from PostgreSQL and free the connection immediately.
    */
   async stream(filter: ContactFilter, res: Response): Promise<void> {
-    const dbStream = streamContactsQuery(filter);
+    return new Promise<void>((resolve, reject) => {
+      const dbStream: Readable = streamContactsQuery(filter);
+      const csvStream = csvFormat<ExportRow, ExportRow>({
+        headers: [...EXPORT_COLUMNS],
+      }).transform((row: ExportRow) => ({
+        ...row,
+        tags: Array.isArray(row['tags']) ? (row['tags'] as string[]).join(';') : '',
+      }));
 
-    const csvStream = csvFormat<ExportRow, ExportRow>({
-      headers: [...EXPORT_COLUMNS],
-    }).transform((row: ExportRow) => ({
-      ...row,
-      // Convert PostgreSQL text[] to semicolon-delimited string
-      tags: Array.isArray(row['tags']) ? (row['tags'] as string[]).join(';') : '',
-    }));
+      let settled = false;
+      const fail = (err: Error) => {
+        if (settled) return;
+        settled = true;
+        dbStream.destroy();
+        csvStream.destroy();
+        reject(err);
+      };
 
-    await pipeline(dbStream, csvStream, res);
+      // Only listen for errors on the DB and CSV streams — NOT on res.
+      // Listening on res.on('error') can fire for socket-level issues unrelated
+      // to our stream logic, causing spurious failures before any data is written.
+      dbStream.on('error', fail);
+      csvStream.on('error', fail);
+
+      res.on('finish', () => {
+        if (!settled) { settled = true; resolve(); }
+      });
+
+      // Client disconnected mid-download → destroy source streams to free the DB connection
+      res.once('close', () => {
+        if (!res.writableEnded) {
+          dbStream.destroy();
+          csvStream.destroy();
+        }
+      });
+
+      // pipe() does NOT destroy res on source error — this is intentional.
+      // It keeps res alive so the route can inspect res.headersSent and act accordingly.
+      dbStream.pipe(csvStream).pipe(res);
+    });
   }
 }
 

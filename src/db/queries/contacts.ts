@@ -7,6 +7,7 @@
  *   - Never import Express types here. This module is pure data access.
  */
 
+import { Readable } from 'node:stream';
 import db from '../knex';
 import type { ContactRecord, ContactFilter } from '../../types/models';
 
@@ -305,10 +306,18 @@ export async function bulkUpsertContacts(inputs: UpsertContactInput[]): Promise<
 }
 
 /**
+ * Verifies the DB connection is alive. Call this BEFORE setting HTTP headers
+ * on a streaming response so failures can still return a clean JSON error.
+ */
+export async function checkDbConnection(): Promise<void> {
+  await db.raw('SELECT 1');
+}
+
+/**
  * Returns a Knex query builder for the export route to pipe into fast-csv.
  * Caller streams the result — never awaited directly.
  */
-export function streamContactsQuery(filter: ContactFilter): NodeJS.ReadableStream {
+export function streamContactsQuery(filter: ContactFilter): Readable {
   let query = db('contacts').select([
     'id', 'phone', 'email', 'name', 'language',
     'segment', 'tags', 'opt_out_whatsapp', 'opt_out_email', 'opt_out_call',
@@ -316,13 +325,17 @@ export function streamContactsQuery(filter: ContactFilter): NodeJS.ReadableStrea
     'address', 'city', 'state', 'pincode', 'gender', 'dob', 'website', 'linkedin_url'
   ]);
 
-  if (filter.segment) query = query.where('segment', filter.segment);
-  if (filter.language) query = query.where('language', filter.language);
+  if (filter.segment)      query = query.where('segment', filter.segment);
+  if (filter.language)     query = query.where('language', filter.language);
+  if (filter.company_name) query = query.where('company_name', 'ilike', `%${filter.company_name}%`);
+  if (filter.industry)     query = query.where('industry', 'ilike', `%${filter.industry}%`);
+  if (filter.city)         query = query.where('city', 'ilike', `%${filter.city}%`);
+  if (filter.state)        query = query.where('state', 'ilike', `%${filter.state}%`);
   if (filter.opt_out_whatsapp !== undefined) query = query.where('opt_out_whatsapp', filter.opt_out_whatsapp);
-  if (filter.opt_out_email !== undefined) query = query.where('opt_out_email', filter.opt_out_email);
+  if (filter.opt_out_email    !== undefined) query = query.where('opt_out_email',    filter.opt_out_email);
   if (filter.tags && filter.tags.length > 0) query = query.whereRaw('tags @> ?::text[]', [filter.tags]);
 
-  return query.stream(); // Returns a Node.js readable stream
+  return query.stream();
 }
 
 /**

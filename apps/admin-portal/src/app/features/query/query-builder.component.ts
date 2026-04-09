@@ -16,7 +16,6 @@ import {
   Component,
   ChangeDetectionStrategy,
   inject,
-  computed,
 } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { ContactsStore } from '../../core/state/contacts.store';
@@ -24,6 +23,7 @@ import { DataTableComponent } from '../../shared/components/data-table/data-tabl
 import { FormatNumberPipe } from '../../shared/pipes/format-number.pipe';
 import type { FilterPayload } from '@cdp/data-models';
 import { QueryApiService } from '@cdp/api-client';
+import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-query-builder',
@@ -201,7 +201,8 @@ import { QueryApiService } from '@cdp/api-client';
 })
 export class QueryBuilderComponent {
   private fb      = inject(FormBuilder);
-  private api     = inject(QueryApiService); // For deletions
+  private api     = inject(QueryApiService);
+  private auth    = inject(AuthService);
   readonly store  = inject(ContactsStore);
 
 
@@ -221,8 +222,9 @@ export class QueryBuilderComponent {
     page_size:        [100],
   });
 
-  /** Build the raw search params for the export URL */
-  exportParams = computed((): URLSearchParams => {
+  /** Build the raw search params for the export URL — plain method, not computed(), because
+   *  filterForm.value is a reactive form value (not a signal) and computed() won't re-run on form changes. */
+  exportParams(): URLSearchParams {
     const v = this.filterForm.value;
     const params = new URLSearchParams();
     if (v.segment)                       params.set('segment', v.segment);
@@ -237,9 +239,20 @@ export class QueryBuilderComponent {
     if (v.opt_out_email === 'true')      params.set('opt_out_email', 'true');
     if (v.opt_out_email === 'false')     params.set('opt_out_email', 'false');
     return params;
-  });
+  }
 
   downloadExport(): void {
+    // Ensure an API key is stored for this session before attempting the export.
+    // The key controls what the user can access: Full Access keys can export,
+    // Masked Access keys are blocked by the server with a clear 403.
+    if (!this.auth.getApiKey()) {
+      const key = window.prompt(
+        'Enter your API key to export.\n\nFull Access key → downloads raw CSV\nMasked Access key → will be rejected by the server',
+      );
+      if (!key?.trim()) return; // User cancelled
+      this.auth.setApiKey(key.trim());
+    }
+
     const params = this.exportParams();
     this.api.getExportBlob(params).subscribe({
       next: (blob) => {
@@ -252,9 +265,17 @@ export class QueryBuilderComponent {
         a.click();
         window.URL.revokeObjectURL(url);
       },
-      error: () => {
-        alert('Failed to download export. Please try again.');
-      }
+      error: (err: { status: number }) => {
+        if (err.status === 403) {
+          alert('This API key does not have raw data export access.\nUse a Full Access key.');
+          // Clear the stored key so the user is prompted again next time
+          this.auth.setApiKey('');
+        } else if (err.status === 401) {
+          // Invalid key — clear and let the user try again next click
+          this.auth.setApiKey('');
+        }
+        // 5xx and other errors are handled globally by errorInterceptor (shows toast)
+      },
     });
   }
 
