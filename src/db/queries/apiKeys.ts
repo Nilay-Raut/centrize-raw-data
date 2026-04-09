@@ -22,11 +22,11 @@ import type { ApiKeyRecord, Platform } from '../../types/models';
  */
 export async function findApiKeyByPrefix(
   prefix: string,
-): Promise<Pick<ApiKeyRecord, 'id' | 'key_hash' | 'platform' | 'key_prefix'> | null> {
+): Promise<Pick<ApiKeyRecord, 'id' | 'key_hash' | 'platform' | 'key_prefix' | 'can_view_raw'> | null> {
   const row = (await db('api_keys')
-    .select('id', 'key_hash', 'platform', 'key_prefix')
+    .select('id', 'key_hash', 'platform', 'key_prefix', 'can_view_raw')
     .where({ key_prefix: prefix, active: true })
-    .first()) as Pick<ApiKeyRecord, 'id' | 'key_hash' | 'platform' | 'key_prefix'> | undefined;
+    .first()) as Pick<ApiKeyRecord, 'id' | 'key_hash' | 'platform' | 'key_prefix' | 'can_view_raw'> | undefined;
 
   return row ?? null;
 }
@@ -57,7 +57,7 @@ export async function deactivateApiKey(keyPrefix: string): Promise<void> {
  */
 export async function listApiKeys(): Promise<Omit<ApiKeyRecord, 'key_hash'>[]> {
   return db('api_keys')
-    .select('id', 'name', 'key_prefix', 'platform', 'active', 'last_used_at', 'created_at')
+    .select('id', 'name', 'key_prefix', 'platform', 'active', 'can_view_raw', 'last_used_at', 'created_at')
     .orderBy('created_at', 'desc') as Promise<Omit<ApiKeyRecord, 'key_hash'>[]>;
 }
 
@@ -70,6 +70,7 @@ export async function insertApiKey(input: {
   keyHash: string;    // bcrypt hash — not the raw key
   keyPrefix: string;  // First 8 chars of raw key
   platform: Platform;
+  canViewRaw?: boolean;
 }): Promise<string> {
   const [row] = (await db('api_keys')
     .insert({
@@ -77,6 +78,7 @@ export async function insertApiKey(input: {
       key_hash: input.keyHash,
       key_prefix: input.keyPrefix,
       platform: input.platform,
+      can_view_raw: input.canViewRaw ?? false,
     })
     .returning('id')) as { id: string }[];
 

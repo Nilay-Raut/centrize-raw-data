@@ -35,8 +35,17 @@ export interface ContactRecord {
   opt_out_whatsapp: boolean;
   opt_out_email: boolean;
   opt_out_call: boolean;
+  history?: CampaignUsageRecord[];
   created_at: string;      // ISO 8601
   updated_at: string;      // ISO 8601
+}
+
+export interface CampaignUsageRecord {
+  id: string;
+  campaign_name: string;
+  campaign_type: string;
+  platform?: string;
+  used_at: string;
 }
 
 // ─── Query API ────────────────────────────────────────────────────────────────
@@ -56,6 +65,12 @@ export interface ContactFilter {
   industry?: string;
   sector?: string;
   company_name?: string;
+
+  // History-based filters
+  last_used_before?: string;   // ISO date string
+  in_campaign?: string;        // Campaign name
+  not_in_campaign?: string;    // Campaign name
+  used_in_types?: string[];    // e.g. ['whatsapp', 'call']
 }
 
 export interface FilterPayload {
@@ -101,6 +116,7 @@ export type StandardField =
   | 'tags'
   | 'opt_out_whatsapp'
   | 'opt_out_email'
+  | 'opt_out_call'
   | 'company_name'
   | 'designation'
   | 'industry'
@@ -137,6 +153,7 @@ export interface ApiKeyRecord {
   key_prefix: string;      // First 8 chars of raw key — for lookup
   platform: Platform;
   active: boolean;
+  can_view_raw: boolean;
   last_used_at?: string;
   created_at: string;
 }
@@ -164,6 +181,7 @@ export interface ResolvedApiKey {
   platform: Platform;
   keyPrefix: string;
   keyId: string;
+  canViewRaw: boolean;
 }
 
 // ─── Error Shapes ─────────────────────────────────────────────────────────────

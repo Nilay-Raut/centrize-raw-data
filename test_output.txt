@@ -1,0 +1,14 @@
+--- Step 1: Creating 10 test contacts ---
+
+--- Step 2: Recording usage for contacts 1-5 (Campaign A, WhatsApp) ---
+--- Step 3: Recording usage for contacts 3-7 (Campaign B, Call) ---
+
+--- Step 4: Testing Filters ---
+- Filter 'in_campaign: Campaign A': 5 (Expected: 5)
+- Filter 'not_in_campaign: Campaign A': 5 (Expected: 5)
+- Filter 'used_in_types: call': 5 (Expected: 5)
+- Filter 'last_used_before: Tomorrow': 10 (Expected: 0)
+- Filter 'last_used_before: Yesterday': 3 (Expected: 3)
+
+--- Step 5: Final Check ---
+❌ VERIFICATION FAILED

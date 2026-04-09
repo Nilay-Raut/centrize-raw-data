@@ -34,34 +34,41 @@ function extractPrefix(rawKey: string): string | null {
 
 export function apiKeyAuth(req: Request, _res: Response, next: NextFunction): void {
   void (async (): Promise<void> => {
-    const rawKey = req.headers[API_KEY_HEADER];
-    logger.info({ message: 'API key', rawKey });
-    if (!rawKey || typeof rawKey !== 'string') {
-      next(new UnauthorisedError('Missing X-Api-Key header'));
-      return;
-    }
-
-    const prefix = extractPrefix(rawKey);
-    logger.debug({ message: 'Extracted prefix', prefix, rawKeyLength: rawKey.length });
-    if (!prefix) {
-      next(new UnauthorisedError('Invalid API key format'));
-      return;
-    }
-
     try {
+      const rawKey = req.headers[API_KEY_HEADER];
+      if (!rawKey || typeof rawKey !== 'string') {
+        next(new UnauthorisedError('Missing X-Api-Key header'));
+        return;
+      }
+
+      const prefix = extractPrefix(rawKey);
+      if (!prefix) {
+        next(new UnauthorisedError('Invalid API key format'));
+        return;
+      }
+
       // ── Cache check ────────────────────────────────────────────────────────
       const cacheKey = `${API_KEY_CACHE_PREFIX}${prefix}`;
       const cached = await redis.get(cacheKey);
 
       if (cached) {
-        const { platform, keyId } = JSON.parse(cached) as { platform: Platform; keyId: string };
-        req.resolvedApiKey = { platform, keyPrefix: prefix, keyId };
-        // Fire-and-forget touch — don't await to avoid adding latency
-        void touchApiKey(keyId).catch((err: Error) =>
-          logger.warn({ message: 'Failed to touch api key', err: err.message }),
-        );
-        next();
-        return;
+        const parsed = JSON.parse(cached);
+        // Stale cache check: if canViewRaw is missing, re-fetch from DB
+        if (parsed.canViewRaw !== undefined) {
+          const { platform, keyId, canViewRaw } = parsed as { 
+            platform: Platform; 
+            keyId: string; 
+            canViewRaw: boolean 
+          };
+          req.resolvedApiKey = { platform, keyPrefix: prefix, keyId, canViewRaw };
+          
+          void touchApiKey(keyId).catch((err: Error) =>
+            logger.warn({ message: 'Failed to touch api key', err: err.message }),
+          );
+          next();
+          return;
+        }
+        logger.info({ message: 'Stale API key cache detected, re-fetching from DB', prefix });
       }
 
       // ── DB lookup ─────────────────────────────────────────────────────────
@@ -71,12 +78,7 @@ export function apiKeyAuth(req: Request, _res: Response, next: NextFunction): vo
         return;
       }
 
-      logger.info({ message: 'API key record found', record });
-      logger.info({ message: 'API prefix', prefix });
-      logger.info({ message: 'API rawKey', rawKey });
-      logger.info({ message: 'API key_hash', record });
       const isValid = await bcrypt.compare(rawKey, record.key_hash);
-      logger.info({ message: 'API key valid', isValid });
       if (!isValid) {
         next(new UnauthorisedError('Invalid API key'));
         return;
@@ -86,13 +88,18 @@ export function apiKeyAuth(req: Request, _res: Response, next: NextFunction): vo
       await redis.setex(
         cacheKey,
         API_KEY_CACHE_TTL_SECONDS,
-        JSON.stringify({ platform: record.platform, keyId: record.id }),
+        JSON.stringify({ 
+          platform: record.platform, 
+          keyId: record.id, 
+          canViewRaw: record.can_view_raw 
+        }),
       );
 
       req.resolvedApiKey = {
         platform: record.platform,
         keyPrefix: prefix,
         keyId: record.id,
+        canViewRaw: record.can_view_raw,
       };
 
       void touchApiKey(record.id).catch((err: Error) =>

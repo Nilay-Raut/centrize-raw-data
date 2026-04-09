@@ -78,6 +78,7 @@ router.post(
         filters: filter,
       },
       platform,
+      req.resolvedApiKey.canViewRaw,
     );
     res.json(result);
   }),

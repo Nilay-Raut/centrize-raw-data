@@ -26,6 +26,7 @@ import keysRouter from './keys';
 import deleteRouter from './delete';
 import insightsRouter from './insights';
 import publicRouter from './public';
+import usageRouter from './usageRoutes';
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router.use('/api', jobsRouter);
 router.use('/api', keysRouter);
 router.use('/api', deleteRouter);
 router.use('/api', insightsRouter);
+router.use('/api/usage', usageRouter);
 router.use('/api/public', publicRouter);
 
 export default router;

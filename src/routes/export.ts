@@ -19,7 +19,7 @@ import { jwtAuth } from '../middleware/jwtAuth';
 import { ipAllowlist } from '../middleware/ipAllowlist';
 import { rateLimiterMiddleware } from '../middleware/rateLimiter';
 import { exportService } from '../services/ExportService';
-import { ValidationError } from '../types/errors';
+import { ValidationError, ForbiddenError } from '../types/errors';
 import { logger } from '../middleware/logger';
 import { catchAsync } from '../utils/catchAsync';
 import type { Request, Response, NextFunction } from 'express';
@@ -56,6 +56,12 @@ router.get(
 
     const q = req.query as Record<string, string>;
 
+    // Restriction: Only "Raw Access" keys can export CSV data
+    if (!req.resolvedApiKey?.canViewRaw) {
+      next(new ForbiddenError('Your API key is not authorized for raw data export. Please contact an administrator.'));
+      return;
+    }
+
     const filter: ContactFilter = {};
     if (q['segment']) filter.segment = q['segment'];
     if (q['language']) filter.language = q['language'];
@@ -79,8 +85,8 @@ router.get(
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Transfer-Encoding', 'chunked');
     res.setHeader('Cache-Control', 'no-store');
-
     await exportService.stream(filter, res);
+
   }),
 );
 

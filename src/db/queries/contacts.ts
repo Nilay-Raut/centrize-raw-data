@@ -84,6 +84,27 @@ export async function queryContacts(
 
     if (filter.tags && filter.tags.length > 0) q.whereRaw('tags @> ?::text[]', [filter.tags]);
     if (filter.tags_any && filter.tags_any.length > 0) q.whereRaw('tags && ?::text[]', [filter.tags_any]);
+
+    // History-based filters
+    if (filter.in_campaign) {
+      q.whereIn('id', db('campaign_history').select('contact_id').where('campaign_name', filter.in_campaign));
+    }
+    if (filter.not_in_campaign) {
+      q.whereNotIn('id', db('campaign_history').select('contact_id').where('campaign_name', filter.not_in_campaign));
+    }
+    if (filter.last_used_before) {
+      // Exclude contacts who have any usage AFTER the specified date
+      q.whereNotExists(
+        db('campaign_history')
+          .select(1)
+          .whereRaw('campaign_history.contact_id = contacts.id')
+          .where('used_at', '>=', filter.last_used_before)
+      );
+    }
+    if (filter.used_in_types && filter.used_in_types.length > 0) {
+      q.whereIn('id', db('campaign_history').select('contact_id').whereIn('campaign_type', filter.used_in_types));
+    }
+
     return q;
   };
 
@@ -203,9 +224,9 @@ export async function bulkUpsertContacts(inputs: UpsertContactInput[]): Promise<
   const phones = uniqueInputs.map((i) => i.phone);
   const emails = uniqueInputs.map((i) => i.email).filter(Boolean) as string[];
 
-  // 2. Fetch existing contacts that might conflict
+  // 2. Fetch existing contacts that might conflict (fetch all columns for merging)
   const existing = await db('contacts')
-    .select('id', 'phone', 'email')
+    .select('*')
     .where({ segment })
     .andWhere((qb) => {
       qb.whereIn('phone', phones);
@@ -214,47 +235,58 @@ export async function bulkUpsertContacts(inputs: UpsertContactInput[]): Promise<
       }
     });
 
-  // Create lookups
-  const byPhone = new Map<string, string>();
-  const byEmail = new Map<string, string>();
+  // Create lookups (store the full record)
+  const byPhone = new Map<string, any>();
+  const byEmail = new Map<string, any>();
   existing.forEach((c) => {
-    byPhone.set(c.phone, c.id);
-    if (c.email) byEmail.set(c.email.toLowerCase(), c.id);
+    byPhone.set(c.phone, c);
+    if (c.email) byEmail.set(c.email.toLowerCase(), c);
   });
 
-  // 3. Map uniqueInputs to rows with IDs where they exist
+  // 3. Map uniqueInputs to rows with partial merging
   const rows = uniqueInputs.map((input) => {
     // Priority: Phone match, then Email match
-    const existingId = byPhone.get(input.phone) || (input.email ? byEmail.get(input.email) : null);
+    const existing = byPhone.get(input.phone) || (input.email ? byEmail.get(input.email) : null);
 
+    // Merge logic: Use input value if provided, else keep existing DB value, else use default
     return {
-      id: existingId || undefined, // undefined triggers auto-gen UUID on insert
+      id: existing?.id || undefined, // undefined triggers auto-gen UUID on insert
       phone: input.phone,
-      email: input.email ?? null,
-      name: input.name ?? null,
-      language: input.language ?? 'en',
-      tags: input.tags ? db.raw('?::text[]', [input.tags]) : null,
+      email: input.email !== undefined ? (input.email ?? null) : (existing?.email ?? null),
+      name: input.name !== undefined ? (input.name ?? null) : (existing?.name ?? null),
+      language: input.language !== undefined ? input.language : (existing?.language ?? 'en'),
+      tags: input.tags !== undefined 
+        ? (input.tags ? db.raw('?::text[]', [input.tags]) : null)
+        : (existing?.tags ? db.raw('?::text[]', [existing.tags]) : null),
       segment: input.segment,
       source_batch_id: input.source_batch_id ?? null,
-      custom: JSON.stringify(input.custom ?? {}),
-      opt_out_whatsapp: input.opt_out_whatsapp ?? false,
-      opt_out_email: input.opt_out_email ?? false,
-      opt_out_call: input.opt_out_call ?? false,
+      custom: input.custom 
+        ? JSON.stringify({ ...(existing?.custom || {}), ...input.custom }) 
+        : JSON.stringify(existing?.custom || {}),
+      opt_out_whatsapp: input.opt_out_whatsapp !== undefined 
+        ? input.opt_out_whatsapp 
+        : (existing?.opt_out_whatsapp ?? false),
+      opt_out_email: input.opt_out_email !== undefined 
+        ? input.opt_out_email 
+        : (existing?.opt_out_email ?? false),
+      opt_out_call: input.opt_out_call !== undefined 
+        ? input.opt_out_call 
+        : (existing?.opt_out_call ?? false),
       
       // Extended fields
-      company_name: input.company_name ?? null,
-      designation: input.designation ?? null,
-      industry: input.industry ?? null,
-      sector: input.sector ?? null,
-      sub_sector: input.sub_sector ?? null,
-      address: input.address ?? null,
-      city: input.city ?? null,
-      state: input.state ?? null,
-      pincode: input.pincode ?? null,
-      gender: input.gender ?? null,
-      dob: input.dob ?? null,
-      website: input.website ?? null,
-      linkedin_url: input.linkedin_url ?? null,
+      company_name: input.company_name !== undefined ? (input.company_name ?? null) : (existing?.company_name ?? null),
+      designation: input.designation !== undefined ? (input.designation ?? null) : (existing?.designation ?? null),
+      industry: input.industry !== undefined ? (input.industry ?? null) : (existing?.industry ?? null),
+      sector: input.sector !== undefined ? (input.sector ?? null) : (existing?.sector ?? null),
+      sub_sector: input.sub_sector !== undefined ? (input.sub_sector ?? null) : (existing?.sub_sector ?? null),
+      address: input.address !== undefined ? (input.address ?? null) : (existing?.address ?? null),
+      city: input.city !== undefined ? (input.city ?? null) : (existing?.city ?? null),
+      state: input.state !== undefined ? (input.state ?? null) : (existing?.state ?? null),
+      pincode: input.pincode !== undefined ? (input.pincode ?? null) : (existing?.pincode ?? null),
+      gender: input.gender !== undefined ? (input.gender ?? null) : (existing?.gender ?? null),
+      dob: input.dob !== undefined ? (input.dob ?? null) : (existing?.dob ?? null),
+      website: input.website !== undefined ? (input.website ?? null) : (existing?.website ?? null),
+      linkedin_url: input.linkedin_url !== undefined ? (input.linkedin_url ?? null) : (existing?.linkedin_url ?? null),
       updated_at: db.fn.now(),
     };
   });
@@ -305,5 +337,26 @@ export async function deleteContactsBySegment(segment: string): Promise<number> 
  */
 export async function deleteContactsByBatch(batchId: string): Promise<number> {
   return db('contacts').where({ source_batch_id: batchId }).delete();
+}
+
+/**
+ * Record campaign usage for a batch of contacts.
+ */
+export async function recordCampaignUsage(
+  contactIds: string[],
+  details: { campaign_name: string; campaign_type: string; platform?: string }
+): Promise<void> {
+  if (contactIds.length === 0) return;
+
+  const rows = contactIds.map((id) => ({
+    contact_id: id,
+    campaign_name: details.campaign_name,
+    campaign_type: details.campaign_type,
+    platform: details.platform || null,
+    used_at: db.fn.now(),
+  }));
+
+  // Batch insert into history
+  await db('campaign_history').insert(rows);
 }
 

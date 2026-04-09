@@ -139,16 +139,22 @@ export function normaliseRow(
         if (value) contact.name = value;
         break;
       case 'language':
-        contact.language = value || 'en';
+        if (value) contact.language = value;
         break;
       case 'tags':
         contact.tags = parseTags(value);
         break;
       case 'opt_out_whatsapp':
-        contact.opt_out_whatsapp = parseBoolean(value) ?? false;
+        const ow = parseBoolean(value);
+        if (ow !== undefined) contact.opt_out_whatsapp = ow;
         break;
       case 'opt_out_email':
-        contact.opt_out_email = parseBoolean(value) ?? false;
+        const oe = parseBoolean(value);
+        if (oe !== undefined) contact.opt_out_email = oe;
+        break;
+      case 'opt_out_call':
+        const oc = parseBoolean(value);
+        if (oc !== undefined) contact.opt_out_call = oc;
         break;
       case 'company_name':
         if (value) contact.company_name = value;

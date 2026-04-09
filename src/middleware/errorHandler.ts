@@ -18,6 +18,14 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  // If headers are already sent, we cannot send a JSON response.
+  // We must delegate to the default Express error handler or just close the connection.
+  if (res.headersSent) {
+    logger.error({ message: 'Error after headers sent', err });
+    res.end();
+    return;
+  }
+
   if (err instanceof AppError) {
     // Operational error — log at warn level (not an alert)
     logger.warn({

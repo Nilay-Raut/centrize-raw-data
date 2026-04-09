@@ -11,6 +11,7 @@
 import { queryContacts } from '../db/queries/contacts';
 import { LIMITS, DEFAULT_PAGE_SIZE } from '../config/limits';
 import { ValidationError } from '../types/errors';
+import { maskEmail, maskPhone } from '../utils/masking';
 import type { FilterPayload, QueryResult, Platform } from '../types/models';
 
 export class QueryService {
@@ -18,9 +19,10 @@ export class QueryService {
    * Execute a contact query for a given platform.
    *
    * @param payload  - Filter + pagination options from the API caller
-   * @param platform - Resolved platform (from API key) — used to enforce page size cap
+   * @param platform - Resolved platform (from API key)
+   * @param canViewRaw - Whether to skip PII masking
    */
-  async query(payload: FilterPayload, platform: Platform): Promise<QueryResult> {
+  async query(payload: FilterPayload, platform: Platform, canViewRaw = false): Promise<QueryResult> {
     const platformLimits = LIMITS[platform];
     if (!platformLimits) {
       throw new ValidationError(`Unknown platform: ${platform}`);
@@ -42,8 +44,17 @@ export class QueryService {
 
     const result = await queryContacts(payload.filters, pageSize, cursor, fields, page);
 
+    // Apply masking if not authorized to view raw data
+    const rows = canViewRaw 
+      ? result.rows 
+      : result.rows.map((row: any) => ({
+          ...row,
+          phone: row.phone ? maskPhone(row.phone) : row.phone,
+          email: row.email ? maskEmail(row.email) : row.email,
+        }));
+
     return {
-      data: result.rows,
+      data: rows,
       next_cursor: result.nextCursor,
       total_count: result.totalCount,
       total_pages: result.totalPages,

@@ -93,7 +93,7 @@ const STANDARD_FIELDS = [
                   Browse file
                   <input type="file" accept=".csv,.xlsx" style="display:none" (change)="onFileSelected($event)" />
                 </label>
-                <p class="drop-hint">CSV or Excel (Max 50 MB)</p>
+                <p class="drop-hint">CSV or Excel (Max 100 MB)</p>
                 <div class="sample-link">
                   Need a format example? 
                   <a href="assets/samples/contacts_sample.csv" download>Download Sample CSV</a>
@@ -388,8 +388,8 @@ export class UploadComponent {
       return;
     }
 
-    if (f.size > 50 * 1024 * 1024) {
-      this.parseError.set('File is too large. Maximum size is 50 MB.');
+    if (f.size > 100 * 1024 * 1024) {
+      this.parseError.set('File is too large. Maximum size is 100 MB.');
       return;
     }
 

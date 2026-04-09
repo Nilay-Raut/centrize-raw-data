@@ -19,7 +19,9 @@
 
 import { Worker, type Job } from 'bullmq';
 import fs from 'node:fs';
+import path from 'node:path';
 import { parse as parseCsv } from 'fast-csv';
+import * as xlsx from 'xlsx';
 import redis from '../db/redis';
 import { normaliseRow } from '../services/NormaliserService';
 import { bulkUpsertContacts } from '../db/queries/contacts';
@@ -32,6 +34,43 @@ import type { StandardField } from '../types/models';
 import { s3Service } from '../utils/s3';
 
 const BATCH_SIZE = 500;
+
+/**
+ * Helper to yield to the event loop — prevents blocking the worker's
+ * heartbeats to BullMQ/Redis during CPU-intensive loops.
+ */
+const yieldToEventLoop = () => new Promise((resolve) => setImmediate(resolve));
+
+/**
+ * Get row iterator for the file based on extension.
+ * Returns a generator that yields rows as key-value objects.
+ */
+async function* getRowIterator(filePath: string, s3Key: string): AsyncGenerator<Record<string, any>> {
+  const ext = path.extname(s3Key).toLowerCase();
+
+  if (ext === '.xlsx' || ext === '.xls') {
+    const workbook = xlsx.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) throw new Error('Excel file has no sheets');
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) throw new Error(`Sheet "${sheetName}" not found in Excel file`);
+    
+    const rows = xlsx.utils.sheet_to_json(worksheet, { defval: '' });
+    for (let i = 0; i < rows.length; i++) {
+      // Yield to event loop every BATCH_SIZE rows during extraction
+      if (i > 0 && i % BATCH_SIZE === 0) {
+        await yieldToEventLoop();
+      }
+      yield rows[i] as Record<string, any>;
+    }
+  } else {
+    // Default to CSV
+    const stream = fs.createReadStream(filePath).pipe(parseCsv({ headers: true, ignoreEmpty: true }));
+    for await (const row of stream) {
+      yield row as Record<string, any>;
+    }
+  }
+}
 
 async function processJob(job: Job<NormaliserJobData>): Promise<void> {
   const { jobId, s3Key, segment, fieldMapping } = job.data;
@@ -63,29 +102,39 @@ async function processJob(job: Job<NormaliserJobData>): Promise<void> {
       await incrementJobProgress(jobId, batch.length, 0);
       await job.updateProgress(processedRows);
       batch = [];
+
+      // Allow heartbeats during batching
+      await yieldToEventLoop();
     };
 
     // ─── Pass 1: Count total rows for progress denominator ─────────────
     let totalRows = 0;
-    await new Promise<void>((resolve, reject) => {
-      if (!filePath) return reject(new Error('File path is missing'));
-      fs.createReadStream(filePath)
-        .pipe(parseCsv({ headers: true, ignoreEmpty: true }))
-        .on('data', () => {
-          totalRows++;
-        })
-        .on('error', reject)
-        .on('end', resolve);
-    });
+    const ext = path.extname(s3Key).toLowerCase();
+
+    if (ext === '.xlsx' || ext === '.xls') {
+      // OPTIMIZATION: Get count from Excel range metadata (instant)
+      const workbook = xlsx.readFile(filePath, { sheetRows: 1 }); // Just headers to get ref
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName!];
+      const ref = worksheet?.['!ref'];
+      if (ref) {
+        const range = xlsx.utils.decode_range(ref);
+        totalRows = range.e.r; // End row index (0-indexed, so 10 rows means e.r is 9, e.r is actual data row count if headers exist)
+      }
+    } else {
+      const countIterator = getRowIterator(filePath, s3Key);
+      for await (const _ of countIterator) {
+        totalRows++;
+      }
+    }
 
     workerLogger.info({ message: 'Row count complete', jobId, totalRows });
     await updateJobStatus(jobId, 'processing', { total_rows: totalRows });
 
     // ─── Pass 2: Normalise and Insert ──────────────────────────────────
-    const fileStream = fs.createReadStream(filePath);
-    const csvStream = fileStream.pipe(parseCsv({ headers: true, ignoreEmpty: true }));
+    const processIterator = getRowIterator(filePath, s3Key);
 
-    for await (const row of csvStream) {
+    for await (const row of processIterator) {
       const result = normaliseRow(
         row as Record<string, string>,
         fieldMapping as Record<string, StandardField>,
@@ -130,5 +179,7 @@ export function createNormaliserWorker(): Worker<NormaliserJobData> {
   return new Worker<NormaliserJobData>(NORMALISER_QUEUE_NAME, processJob, {
     connection: redis,
     concurrency: parseInt(process.env['WORKER_CONCURRENCY'] ?? '3', 10),
+    lockDuration: 60000,      // Increase to 60s for large batches
+    lockRenewTime: 15000,      // Renew every 15s
   });
 }
