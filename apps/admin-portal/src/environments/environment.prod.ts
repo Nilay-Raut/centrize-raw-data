@@ -9,5 +9,5 @@
  */
 export const environment = {
   production: true,
-  apiBase: 'https://api.yourdomain.com',
+  apiBase: '',   // Same-origin: Nginx proxies /api/* to cdp-api container
 };

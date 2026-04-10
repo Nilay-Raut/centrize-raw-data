@@ -28,8 +28,8 @@ module.exports = {
       max_restarts: 10,
       min_uptime: '10s',
       restart_delay: 3000,
-      // Memory threshold — restart if API uses more than 900MB
-      max_memory_restart: '900M',
+      // Memory threshold — restart if API uses more than 400MB (t4g.micro safe)
+      max_memory_restart: '400M',
       // Log config
       out_file: '/var/log/pm2/cdp-api-out.log',
       error_file: '/var/log/pm2/cdp-api-error.log',
@@ -53,7 +53,7 @@ module.exports = {
       max_restarts: 10,
       min_uptime: '10s',
       restart_delay: 5000,
-      max_memory_restart: '600M',
+      max_memory_restart: '300M',
       out_file: '/var/log/pm2/cdp-worker-out.log',
       error_file: '/var/log/pm2/cdp-worker-error.log',
       merge_logs: true,

@@ -10,6 +10,7 @@ build/
 
 # Environment — NEVER commit these
 .env
+.env.prod
 .env.local
 .env.*.local
 

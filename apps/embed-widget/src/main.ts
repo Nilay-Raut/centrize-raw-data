@@ -13,7 +13,8 @@ void (async () => {
   const app = await createApplication({
     providers: [
       provideHttpClient(),
-      { provide: API_BASE_URL, useValue: 'http://localhost:3000' }
+      // baseUrl is passed as an HTML attribute by the host platform — this is just a fallback
+      { provide: API_BASE_URL, useValue: '' }
     ],
   });
 
