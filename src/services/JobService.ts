@@ -15,12 +15,14 @@ import { NORMALISER_QUEUE_NAME } from '../config/limits';
 import type { UploadJob } from '../types/models';
 
 import { s3Service } from '../utils/s3';
+import { env } from '../config/env';
 
 // ─── Queue ────────────────────────────────────────────────────────────────────
 
 export interface NormaliserJobData {
   jobId: string;
-  s3Key: string;             // S3 key for the uploaded file
+  s3Key?: string;      // S3 mode (USE_S3=true): key of the uploaded file
+  filePath?: string;   // Local mode (USE_S3=false): path to the multer temp file
   filename: string;
   segment: string;
   fieldMapping: Record<string, string>;
@@ -55,20 +57,27 @@ export class JobService {
       segment: input.segment,
     });
 
-    // Upload to S3 before queuing — Ensures durability
-    const s3Key = `uploads/${jobId}-${input.filename}`;
-    await s3Service.uploadFile(input.filePath, s3Key);
+    // Build job payload — S3 or local temp path depending on USE_S3
+    const basePayload = {
+      filename: input.filename,
+      segment: input.segment,
+      fieldMapping: input.fieldMapping,
+    };
+
+    let storagePayload: Pick<NormaliserJobData, 's3Key' | 'filePath'>;
+    if (env.useS3) {
+      const s3Key = `uploads/${jobId}-${input.filename}`;
+      await s3Service.uploadFile(input.filePath, s3Key);
+      storagePayload = { s3Key };
+    } else {
+      // Pass the multer temp path directly — worker cleans it up when done
+      storagePayload = { filePath: input.filePath };
+    }
 
     // Add to BullMQ — worker picks this up asynchronously
     await normaliserQueue.add(
       'normalise',
-      {
-        jobId,
-        s3Key,
-        filename: input.filename,
-        segment: input.segment,
-        fieldMapping: input.fieldMapping,
-      },
+      { jobId, ...basePayload, ...storagePayload },
       { jobId }, // Use same ID as DB record for traceability
     );
 

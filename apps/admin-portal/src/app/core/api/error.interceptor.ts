@@ -13,8 +13,12 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((err: { status: number; error?: { retry_after?: number; message?: string } }) => {
       switch (err.status) {
         case 401:
-          auth.logout();
-          toast.error('Session expired. Please sign in again.');
+          // Only auto-logout if the user already has a token (i.e. session expired).
+          // If there's no token, the guard will handle redirect — don't double-navigate.
+          if (auth.getToken()) {
+            auth.logout();
+            toast.error('Session expired. Please sign in again.');
+          }
           break;
         case 429:
           toast.warning(`Rate limit hit. Retry after ${err.error?.retry_after ?? 60} s.`);

@@ -45,8 +45,8 @@ const yieldToEventLoop = () => new Promise((resolve) => setImmediate(resolve));
  * Get row iterator for the file based on extension.
  * Returns a generator that yields rows as key-value objects.
  */
-async function* getRowIterator(filePath: string, s3Key: string): AsyncGenerator<Record<string, any>> {
-  const ext = path.extname(s3Key).toLowerCase();
+async function* getRowIterator(filePath: string, filename: string): AsyncGenerator<Record<string, any>> {
+  const ext = path.extname(filename).toLowerCase();
 
   if (ext === '.xlsx' || ext === '.xls') {
     const workbook = xlsx.readFile(filePath);
@@ -73,18 +73,25 @@ async function* getRowIterator(filePath: string, s3Key: string): AsyncGenerator<
 }
 
 async function processJob(job: Job<NormaliserJobData>): Promise<void> {
-  const { jobId, s3Key, segment, fieldMapping } = job.data;
+  const { jobId, s3Key, filePath: localFilePath, filename, segment, fieldMapping } = job.data;
 
-  workerLogger.info({ message: 'Processing job', jobId, segment, s3Key });
+  workerLogger.info({ message: 'Processing job', jobId, segment, storage: s3Key ? 's3' : 'local' });
 
   let filePath: string | null = null;
-  
+
   try {
     await updateJobStatus(jobId, 'processing');
 
-    // ─── Download from S3 to local temp ──────────────────────────────────
-    filePath = await s3Service.downloadToTemp(s3Key);
-    workerLogger.debug({ message: 'S3 file downloaded', jobId, filePath });
+    // ─── Resolve file path — S3 download or local temp ───────────────────
+    if (s3Key) {
+      filePath = await s3Service.downloadToTemp(s3Key);
+      workerLogger.debug({ message: 'S3 file downloaded', jobId, filePath });
+    } else if (localFilePath) {
+      filePath = localFilePath; // Multer temp file passed directly
+      workerLogger.debug({ message: 'Using local temp file', jobId, filePath });
+    } else {
+      throw new Error('Job has neither s3Key nor filePath — cannot process');
+    }
 
     let processedRows = 0;
     let failedRows = 0;
@@ -109,7 +116,7 @@ async function processJob(job: Job<NormaliserJobData>): Promise<void> {
 
     // ─── Pass 1: Count total rows for progress denominator ─────────────
     let totalRows = 0;
-    const ext = path.extname(s3Key).toLowerCase();
+    const ext = path.extname(filename).toLowerCase();
 
     if (ext === '.xlsx' || ext === '.xls') {
       // OPTIMIZATION: Get count from Excel range metadata (instant)
@@ -122,7 +129,7 @@ async function processJob(job: Job<NormaliserJobData>): Promise<void> {
         totalRows = range.e.r; // End row index (0-indexed, so 10 rows means e.r is 9, e.r is actual data row count if headers exist)
       }
     } else {
-      const countIterator = getRowIterator(filePath, s3Key);
+      const countIterator = getRowIterator(filePath, filename);
       for await (const _ of countIterator) {
         totalRows++;
       }
@@ -132,7 +139,7 @@ async function processJob(job: Job<NormaliserJobData>): Promise<void> {
     await updateJobStatus(jobId, 'processing', { total_rows: totalRows });
 
     // ─── Pass 2: Normalise and Insert ──────────────────────────────────
-    const processIterator = getRowIterator(filePath, s3Key);
+    const processIterator = getRowIterator(filePath, filename);
 
     for await (const row of processIterator) {
       const result = normaliseRow(

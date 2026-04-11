@@ -14,16 +14,22 @@ const required: string[] = [
   'JWT_SECRET',
   'ALLOWED_ORIGINS',
   'ADMIN_IP_ALLOWLIST',
-  'S3_BUCKET',
-  'S3_REGION',
-  'AWS_ACCESS_KEY_ID',
-  'AWS_SECRET_ACCESS_KEY',
 ];
 
 const missing = required.filter((key) => !process.env[key]);
 if (missing.length > 0) {
   console.error(`[startup] Missing required environment variables: ${missing.join(', ')}`);
   process.exit(1);
+}
+
+// S3 vars are only required when USE_S3=true
+if (process.env['USE_S3'] === 'true') {
+  const s3Required = ['S3_BUCKET', 'S3_REGION', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'];
+  const s3Missing = s3Required.filter((key) => !process.env[key]);
+  if (s3Missing.length > 0) {
+    console.error(`[startup] USE_S3=true but missing S3 environment variables: ${s3Missing.join(', ')}`);
+    process.exit(1);
+  }
 }
 
 function getInt(key: string, fallback: number): number {
@@ -64,11 +70,14 @@ export const env = {
   // Upload
   uploadMaxBytes: getInt('UPLOAD_MAX_BYTES', 52_428_800), // 50MB default
 
-  // S3 Storage
-  s3Bucket: process.env['S3_BUCKET']!,
-  s3Region: process.env['S3_REGION']!,
-  awsAccessKey: process.env['AWS_ACCESS_KEY_ID']!,
-  awsSecretKey: process.env['AWS_SECRET_ACCESS_KEY']!,
+  // Storage mode: true = upload to S3 then worker downloads; false = pass local temp path
+  useS3: process.env['USE_S3'] === 'true',
+
+  // S3 Storage (only used when useS3=true)
+  s3Bucket: process.env['S3_BUCKET'] ?? '',
+  s3Region: process.env['S3_REGION'] ?? '',
+  awsAccessKey: process.env['AWS_ACCESS_KEY_ID'] ?? '',
+  awsSecretKey: process.env['AWS_SECRET_ACCESS_KEY'] ?? '',
 
   // Logging
   logLevel: process.env['LOG_LEVEL'] ?? 'info',

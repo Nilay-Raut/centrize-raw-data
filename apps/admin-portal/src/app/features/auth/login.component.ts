@@ -141,8 +141,9 @@ export class LoginComponent {
     this.auth.login({ email, password }).subscribe({
       next: () => {
         if (apiKey.trim()) this.auth.setApiKey(apiKey.trim());
+        this.loading.set(false);
         this.toast.success('Signed in successfully.');
-        void this.router.navigate(['/']);
+        void this.router.navigate(['/insights']);
       },
       error: (err: { status?: number }) => {
         this.loading.set(false);
