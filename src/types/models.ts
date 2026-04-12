@@ -172,6 +172,9 @@ export interface JwtPayload {
   sub: string;          // Admin user ID
   email: string;
   canViewRaw: boolean;  // Whether this admin can export raw (unmasked) data
+  apiKeyPrefix?: string; // Optional embedded API key context
+  apiKeyId?: string;
+  apiKeyPlatform?: Platform;
   iat: number;
   exp: number;
 }

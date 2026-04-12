@@ -15,7 +15,7 @@ import bcrypt from 'bcrypt';
 import { env } from '../config/env';
 import { ValidationError, UnauthorisedError } from '../types/errors';
 import db from '../db/knex';
-import type { AdminUser } from '../types/models';
+import type { AdminUser, JwtPayload } from '../types/models';
 import { catchAsync } from '../utils/catchAsync';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -41,7 +41,11 @@ router.post(
       return;
     }
 
-    const { email, password } = req.body as { email: string; password: string };
+    const { email, password, apiKey } = req.body as { 
+      email: string; 
+      password: string;
+      apiKey?: string;
+    };
 
     // Fetch user from DB
     const user = await (db('admin_users').where({ email }).first() as Promise<AdminUser | undefined>);
@@ -58,8 +62,25 @@ router.post(
       return;
     }
 
+    // Optional: Verify API key if provided
+    let apiKeyContext: Partial<JwtPayload> = {};
+    if (apiKey) {
+      const { verifyApiKey } = await import('../middleware/apiKeyAuth');
+      const resolved = await verifyApiKey(apiKey);
+      apiKeyContext = {
+        apiKeyPrefix: resolved.keyPrefix,
+        apiKeyId: resolved.keyId,
+        apiKeyPlatform: resolved.platform,
+      };
+    }
+
     const token = jwt.sign(
-      { sub: user.id, email: user.email, canViewRaw: user.can_view_raw },
+      { 
+        sub: user.id, 
+        email: user.email, 
+        canViewRaw: user.can_view_raw,
+        ...apiKeyContext
+      },
       env.jwtSecret,
       {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any

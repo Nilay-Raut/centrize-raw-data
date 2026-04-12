@@ -19,8 +19,9 @@
     "test": "cross-env NODE_ENV=test jest --passWithNoTests",
     "test:watch": "jest --watch",
     "generate:key": "ts-node scripts/generateApiKey.ts",
+    "clear:data": "ts-node scripts/clearData.ts",
     "test:coverage": "jest --coverage",
-    "start:frontend": "nx serve admin-portal",
+    "start:frontend": "nx serve admin-portal --host=0.0.0.0 --port=5401",
     "start:widget": "nx serve embed-widget"
   },
   "dependencies": {

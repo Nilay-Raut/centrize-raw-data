@@ -17,7 +17,7 @@ import { query, validationResult } from 'express-validator';
 import dayjs from 'dayjs';
 import { apiKeyAuth } from '../middleware/apiKeyAuth';
 import { jwtAuth } from '../middleware/jwtAuth';
-import { ipAllowlist } from '../middleware/ipAllowlist';
+// import { ipAllowlist } from '../middleware/ipAllowlist';
 import { rateLimiterMiddleware } from '../middleware/rateLimiter';
 import { exportService } from '../services/ExportService';
 import { ValidationError, ForbiddenError, InternalError } from '../types/errors';
@@ -44,7 +44,7 @@ router.get(
   '/export',
   apiKeyAuth,
   jwtAuth,
-  ipAllowlist,
+  // ipAllowlist,
   rateLimiterMiddleware,
   validateExport,
   catchAsync(async (req: Request, res: Response, next: NextFunction): Promise<void> => {

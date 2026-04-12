@@ -12,6 +12,7 @@ import {
   ChangeDetectionStrategy,
   inject,
   signal,
+  NgZone,
 } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -112,21 +113,22 @@ import { ToastService } from '../../core/toast/toast.service';
   `],
 })
 export class LoginComponent {
-  private fb      = inject(FormBuilder);
-  private auth    = inject(AuthService);
-  private router  = inject(Router);
-  private toast   = inject(ToastService);
+  private fb = inject(FormBuilder);
+  private auth = inject(AuthService);
+  private router = inject(Router);
+  private toast = inject(ToastService);
+  private zone = inject(NgZone);
 
-  loading     = signal(false);
+  loading = signal(false);
   serverError = signal('');
 
   form = this.fb.nonNullable.group({
-    email:    ['', [Validators.required, Validators.email]],
+    email: ['', [Validators.required, Validators.email]],
     password: ['', Validators.required],
-    apiKey:   [''],  // optional — stored in sessionStorage for X-Api-Key header
+    apiKey: [''],  // optional — stored in sessionStorage for X-Api-Key header
   });
 
-  emailInvalid    = (): boolean => this.form.controls.email.invalid && this.form.controls.email.touched;
+  emailInvalid = (): boolean => this.form.controls.email.invalid && this.form.controls.email.touched;
   passwordInvalid = (): boolean => this.form.controls.password.invalid && this.form.controls.password.touched;
 
   submit(): void {
@@ -138,20 +140,24 @@ export class LoginComponent {
 
     const { email, password, apiKey } = this.form.getRawValue();
 
-    this.auth.login({ email, password }).subscribe({
+    this.auth.login({ email, password, apiKey: apiKey?.trim() || undefined }).subscribe({
       next: () => {
-        if (apiKey.trim()) this.auth.setApiKey(apiKey.trim());
-        this.loading.set(false);
-        this.toast.success('Signed in successfully.');
-        void this.router.navigate(['/insights']);
+        this.zone.run(() => {
+          if (apiKey?.trim()) this.auth.setApiKey(apiKey.trim());
+          this.loading.set(false);
+          this.toast.success('Signed in successfully.');
+          this.router.navigate(['/insights']);
+        });
       },
       error: (err: { status?: number }) => {
-        this.loading.set(false);
-        this.serverError.set(
-          err.status === 401
-            ? 'Invalid email or password.'
-            : 'Login failed. Please try again.',
-        );
+        this.zone.run(() => {
+          this.loading.set(false);
+          this.serverError.set(
+            err.status === 401
+              ? 'Invalid email or password.'
+              : 'Login failed. Please try again.',
+          );
+        });
       },
     });
   }

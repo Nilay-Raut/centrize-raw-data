@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,7 +17,12 @@
       min-height: 100vh;
       font-family: 'Inter', sans-serif;
     }
-    h1 { margin-bottom: 40px; color: #1a1a1a; }
+
+    h1 {
+      margin-bottom: 40px;
+      color: #1a1a1a;
+    }
+
     .debug-panel {
       margin-top: 40px;
       width: 100%;
@@ -24,22 +30,32 @@
       background: white;
       padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     }
-    .debug-panel h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-    pre { background: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+
+    .debug-panel h3 {
+      margin-top: 0;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    pre {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
   </style>
 </head>
+
 <body>
 
   <h1>CDP Filter Widget Test</h1>
 
   <!-- The Web Component -->
   <!-- Replace src with the actual relative path to the built JS file after building -->
-  <cdp-filter-widget 
-    api-key="test_key_123" 
-    base-url="http://localhost:3000"
-  ></cdp-filter-widget>
+  <cdp-filter-widget api-key="test_key_123" base-url="http://192.168.31.36:3000"></cdp-filter-widget>
 
   <div class="debug-panel">
     <h3>Data Selected Event Log</h3>
@@ -60,4 +76,5 @@
     });
   </script>
 </body>
+
 </html>

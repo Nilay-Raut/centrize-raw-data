@@ -2,12 +2,12 @@
  * GET /api/status/:jobId
  *
  * Returns the current progress of an upload job.
- * Auth: API key (any platform) — no JWT required (ops need this in the UI).
+ * Auth: JWT (admin only) — called by the admin portal after uploading a file.
  */
 
 import { Router } from 'express';
 import { param, validationResult } from 'express-validator';
-import { apiKeyAuth } from '../middleware/apiKeyAuth';
+import { jwtAuth } from '../middleware/jwtAuth';
 import { rateLimiterMiddleware } from '../middleware/rateLimiter';
 import { jobService } from '../services/JobService';
 import { ValidationError } from '../types/errors';
@@ -18,7 +18,7 @@ const router = Router();
 
 router.get(
   '/status/:jobId',
-  apiKeyAuth,
+  jwtAuth,
   rateLimiterMiddleware,
   [param('jobId').isUUID().withMessage('jobId must be a valid UUID')],
   catchAsync(async (req: Request, res: Response, next: NextFunction): Promise<void> => {

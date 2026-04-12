@@ -850,7 +850,7 @@ export const authGuard: CanActivateFn = () => {
 // apps/admin-portal/src/environments/environment.ts  (development)
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:3000',
+  apiUrl: 'http://192.168.31.36:3000',
 };
 
 // apps/admin-portal/src/environments/environment.prod.ts

@@ -28,6 +28,19 @@ export function jwtAuth(req: Request, _res: Response, next: NextFunction): void 
   try {
     const payload = jwt.verify(token, env.jwtSecret) as JwtPayload;
     req.jwtPayload = payload;
+
+    // If JWT carries an embedded API key context, populate req.resolvedApiKey
+    // This allows admin routes to pass through rate limiters/permission checks
+    // even if the X-Api-Key header is missing (because it was provided at login).
+    if (payload.apiKeyId && payload.apiKeyPlatform && payload.apiKeyPrefix) {
+      req.resolvedApiKey = {
+        keyId: payload.apiKeyId,
+        platform: payload.apiKeyPlatform,
+        keyPrefix: payload.apiKeyPrefix,
+        canViewRaw: payload.canViewRaw, // Use the user's view_raw state for the session
+      };
+    }
+
     next();
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {

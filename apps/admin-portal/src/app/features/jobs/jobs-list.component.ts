@@ -15,6 +15,7 @@ import {
   computed,
   OnInit,
   OnDestroy,
+  NgZone,
 } from '@angular/core';
 import { QueryApiService } from '@cdp/api-client';
 import type { UploadJob, JobStatus } from '@cdp/data-models';
@@ -155,7 +156,8 @@ import { FormatNumberPipe } from '../../shared/pipes/format-number.pipe';
   `],
 })
 export class JobsListComponent implements OnInit, OnDestroy {
-  private api = inject(QueryApiService);
+  private api  = inject(QueryApiService);
+  private zone = inject(NgZone);
 
   jobs    = signal<UploadJob[]>([]);
   loading = signal(false);
@@ -168,9 +170,12 @@ export class JobsListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadJobs();
-    // Start auto-refresh; stops itself when no live jobs remain
+    // Start auto-refresh; stops itself when no live jobs remain.
+    // Use NgZone.run so signal updates inside setInterval trigger OnPush CD.
     this._pollInterval = setInterval(() => {
-      if (this.liveJobCount() > 0) this.loadJobs();
+      if (this.liveJobCount() > 0) {
+        this.zone.run(() => this.loadJobs());
+      }
     }, 5000);
   }
 

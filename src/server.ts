@@ -15,7 +15,7 @@ import { logger } from './middleware/logger';
 import db from './db/knex';
 import redis from './db/redis';
 
-const server = app.listen(env.port, () => {
+const server = app.listen(env.port, '0.0.0.0', () => {
   logger.info({
     message: 'CDP API started',
     port: env.port,

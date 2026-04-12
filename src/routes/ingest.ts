@@ -1,9 +1,10 @@
 /**
  * POST /api/ingest
  *
- * Middleware chain: jwtAuth → apiKeyAuth → rateLimiter → multer → validate → handler
+ * Middleware chain: jwtAuth → rateLimiter → multer → validate → handler
  *
- * Auth:    JWT (admin only) + API key
+ * Auth:    JWT (admin only) — no API key required for admin portal uploads.
+ *          Rate limiter falls back to 'admin' tier (300 req/min) when no API key.
  * Body:    multipart/form-data: file + segment + field_mapping (JSON string)
  * Returns: { job_id, message }
  *
@@ -17,7 +18,6 @@ import path from 'node:path';
 import os from 'node:os';
 import { body, validationResult } from 'express-validator';
 import { jwtAuth } from '../middleware/jwtAuth';
-import { apiKeyAuth } from '../middleware/apiKeyAuth';
 import { rateLimiterMiddleware } from '../middleware/rateLimiter';
 import { jobService } from '../services/JobService';
 import { ValidationError, FileTooLargeError } from '../types/errors';
@@ -62,7 +62,6 @@ const validateIngest = [
 router.post(
   '/ingest',
   jwtAuth,
-  apiKeyAuth,
   rateLimiterMiddleware,
   // Multer wraps its own errors — handle size limit specially
   (req: Request, res: Response, next: NextFunction) => {

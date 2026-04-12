@@ -16,7 +16,7 @@ export class AuthService {
     this.isLoggedIn.set(!!this.getToken());
   }
 
-  login(credentials: { email: string; password: string }) {
+  login(credentials: { email: string; password: string; apiKey?: string }) {
     return this.http
       .post<{ token: string }>(`${this.base}/api/auth/login`, credentials)
       .pipe(

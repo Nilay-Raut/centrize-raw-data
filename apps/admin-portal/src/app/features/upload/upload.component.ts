@@ -16,6 +16,8 @@ import {
   signal,
   computed,
   inject,
+  NgZone,
+  OnDestroy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { QueryApiService } from '@cdp/api-client';
@@ -299,9 +301,12 @@ const STANDARD_FIELDS = [
     .alert-error { background: #fef2f2; color: #dc2626; padding: 10px 14px; border-radius: 8px; margin-top: 12px; font-size: 13px; }
   `],
 })
-export class UploadComponent {
+export class UploadComponent implements OnDestroy {
   private api     = inject(QueryApiService);
-  private toast = inject(ToastService);
+  private toast   = inject(ToastService);
+  private zone    = inject(NgZone);
+
+  private _pollInterval: ReturnType<typeof setInterval> | null = null;
 
   readonly STEPS = [
     { key: 'select',  num: 1, label: 'Select file' },
@@ -482,25 +487,42 @@ export class UploadComponent {
   }
 
   private _pollJobProgress(jobId: string): void {
-    const interval = setInterval(() => {
+    this._stopPoll();
+    this._pollInterval = setInterval(() => {
       this.api.getJobStatus(jobId).subscribe({
         next: (job) => {
-          this.progress.set(
-            job.total_rows > 0
-              ? Math.round((job.processed_rows / job.total_rows) * 100)
-              : 0,
-          );
-          this.jobStatus.set(job.status);
-          if (job.status === 'done' || job.status === 'failed') {
-            clearInterval(interval);
-          }
+          // NgZone.run() ensures signal updates inside setInterval trigger
+          // Angular change detection in OnPush components.
+          this.zone.run(() => {
+            this.progress.set(
+              job.total_rows > 0
+                ? Math.round((job.processed_rows / job.total_rows) * 100)
+                : 0,
+            );
+            this.jobStatus.set(job.status);
+            if (job.status === 'done' || job.status === 'failed') {
+              this._stopPoll();
+            }
+          });
         },
-        error: () => clearInterval(interval),
+        error: () => this._stopPoll(),
       });
     }, 2000);
   }
 
+  private _stopPoll(): void {
+    if (this._pollInterval !== null) {
+      clearInterval(this._pollInterval);
+      this._pollInterval = null;
+    }
+  }
+
+  ngOnDestroy(): void {
+    this._stopPoll();
+  }
+
   reset(): void {
+    this._stopPoll();
     this.step.set('select');
     this.file.set(null);
     this.csvHeaders.set([]);
