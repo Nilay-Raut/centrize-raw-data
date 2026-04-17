@@ -20,11 +20,22 @@ import { MaskPipe } from '../../pipes/mask.pipe';
 const VISIBLE_COLUMNS: (keyof ContactRecord)[] = [
   'name',
   'phone',
-  'city',
-  'industry',
+  'email',
+  'designation',
   'company_name',
+  'industry',
+  'sector',
+  'sub_sector',
+  'city',
+  'state',
+  'pincode',
+  'gender',
+  'dob',
+  'website',
+  'linkedin_url',
   'segment',
   'tags',
+  'source_batch_id',
 ];
 
 @Component({
@@ -70,6 +81,9 @@ const VISIBLE_COLUMNS: (keyof ContactRecord)[] = [
                 <span class="tag-pill">{{ tag }}</span>
               }
             </span>
+            <span class="col col-source_batch_id" [title]="c['source_batch_id'] || ''">
+              {{ c['source_batch_id'] || '—' }}
+            </span>
           </div>
         }
       </cdk-virtual-scroll-viewport>
@@ -105,20 +119,24 @@ const VISIBLE_COLUMNS: (keyof ContactRecord)[] = [
     </div>
   `,
   styles: [`
-    .table-container { display: flex; flex-direction: column; height: 100%; position: relative; }
-    .table-meta { padding: 8px 12px; font-size: 13px; color: #666; border-bottom: 1px solid #e5e7eb; }
-    .table-head  { display: flex; padding: 8px 12px; background: #f9fafb; border-bottom: 2px solid #e5e7eb; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #374151; }
-    .table-scroll { flex: 1; height: 600px; }
-    .table-row { display: flex; align-items: center; padding: 0 12px; height: 48px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+    .table-container { display: flex; flex-direction: column; height: 100%; position: relative; overflow-x: auto; }
+    .table-meta { padding: 8px 12px; font-size: 13px; color: #666; border-bottom: 1px solid #e5e7eb; min-width: 2000px; }
+    .table-head  { display: flex; padding: 8px 12px; background: #f9fafb; border-bottom: 2px solid #e5e7eb; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #374151; min-width: 2000px; }
+    .table-scroll { flex: 1; height: 600px; min-width: 2000px; }
+    .table-row { display: flex; align-items: center; padding: 0 12px; height: 48px; border-bottom: 1px solid #f3f4f6; font-size: 13px; min-width: 2000px; }
     .table-row:hover { background: #f9fafb; }
-    .col { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
-    .col-name    { flex: 2; }
-    .col-phone   { flex: 2; font-family: monospace; }
-    .col-email   { flex: 2; }
-    .col-segment { flex: 1; }
-    .col-tags    { flex: 2; display: flex; flex-wrap: wrap; gap: 4px; }
+    .col { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; min-width: 120px; }
+    .col-name    { flex: 2; min-width: 180px; }
+    .col-phone   { flex: 2; font-family: monospace; min-width: 150px; }
+    .col-email   { flex: 2; min-width: 200px; }
+    .col-industry { min-width: 150px; }
+    .col-company_name { min-width: 180px; }
+    .col-website { min-width: 200px; }
+    .col-linkedin_url { min-width: 220px; }
+    .col-address { flex: 3; min-width: 300px; }
+    .col-tags    { flex: 2; display: flex; flex-wrap: wrap; gap: 4px; min-width: 200px; }
     .tag-pill    { background: #dbeafe; color: #1d4ed8; padding: 1px 6px; border-radius: 9999px; font-size: 11px; }
-    .empty-state { padding: 48px; text-align: center; color: #9ca3af; font-size: 14px; }
+    .empty-state { padding: 48px; text-align: center; color: #9ca3af; font-size: 14px; min-width: 100%; }
 
     .pager {
       display: flex;

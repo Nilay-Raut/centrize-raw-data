@@ -113,6 +113,7 @@ export type StandardField =
   | 'email'
   | 'name'
   | 'language'
+  | 'source_batch_id'
   | 'tags'
   | 'opt_out_whatsapp'
   | 'opt_out_email'

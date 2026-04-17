@@ -70,6 +70,12 @@ router.post(
       if (payload.filters.industry) filter.industry = payload.filters.industry;
       if (payload.filters.sector) filter.sector = payload.filters.sector;
       if (payload.filters.company_name) filter.company_name = payload.filters.company_name;
+
+      // History-based filters
+      if (payload.filters.in_campaign) filter.in_campaign = payload.filters.in_campaign;
+      if (payload.filters.not_in_campaign) filter.not_in_campaign = payload.filters.not_in_campaign;
+      if (payload.filters.last_used_before) filter.last_used_before = payload.filters.last_used_before;
+      if (payload.filters.used_in_types) filter.used_in_types = payload.filters.used_in_types;
     }
 
     const result = await queryService.query(

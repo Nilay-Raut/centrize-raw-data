@@ -39,7 +39,9 @@ export class QueryService {
     const page = payload.page ?? 1;
     const fields = payload.fields ?? [
       'id', 'phone', 'name', 'email', 'segment', 'tags',
-      'city', 'state', 'industry', 'company_name', 'designation'
+      'city', 'state', 'industry', 'company_name', 'designation',
+      'sector', 'sub_sector', 'address', 'pincode', 'gender', 'dob',
+      'website', 'linkedin_url', 'source_batch_id'
     ];
 
     const result = await queryContacts(payload.filters, pageSize, cursor, fields, page);

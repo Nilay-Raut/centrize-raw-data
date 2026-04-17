@@ -12,6 +12,7 @@ export interface ContactRecord {
   language: string;
   tags: string[];
   segment: string;
+  source_batch_id?: string;
   
   // Extended Fields
   company_name?: string;
@@ -51,6 +52,11 @@ export interface ContactFilter {
   industry?: string;
   sector?: string;
   company_name?: string;
+
+  // History-based filters
+  last_used_before?: string;   // ISO date string
+  in_campaign?: string;        // Campaign name
+  not_in_campaign?: string;    // Campaign name
 }
 
 export interface FilterPayload {
@@ -106,6 +112,7 @@ export type StandardField =
   | 'dob'
   | 'website'
   | 'linkedin_url'
+  | 'source_batch_id'
   | 'skip';
 
 export interface ApiKey {

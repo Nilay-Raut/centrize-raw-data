@@ -88,6 +88,8 @@ import { AuthService } from '../../core/auth/auth.service';
             </select>
           </div>
 
+
+
           <!-- Page size -->
           <div class="field">
             <label>Page size</label>
@@ -97,6 +99,29 @@ import { AuthService } from '../../core/auth/auth.service';
               <option value="500">500</option>
               <option value="1000">1 000</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Campaign targeting -->
+        <div class="section-divider"></div>
+        <h3 class="section-subtitle">Campaign History Targeting</h3>
+        <div class="filter-grid mt-10">
+          <div class="field">
+            <label>In Campaign</label>
+            <input type="text" formControlName="in_campaign" placeholder="Campaign name" />
+            <span class="hint">Contacts who WERE in this campaign</span>
+          </div>
+
+          <div class="field">
+            <label>Not In Campaign</label>
+            <input type="text" formControlName="not_in_campaign" placeholder="Campaign name" />
+            <span class="hint">Contacts who were NOT in this campaign</span>
+          </div>
+
+          <div class="field">
+            <label>Quiet Period (Used Before)</label>
+            <input type="date" formControlName="last_used_before" />
+            <span class="hint">Exclude contacts used ON or AFTER this date</span>
           </div>
         </div>
 
@@ -192,7 +217,11 @@ import { AuthService } from '../../core/auth/auth.service';
     .load-more-wrap  { padding: 16px; text-align: center; border-top: 1px solid #f3f4f6; }
     .empty-state     { padding: 60px; text-align: center; color: #9ca3af; font-size: 14px; }
 
-    /* Skeleton */
+    /* Layout helpers */
+    .section-divider { height: 1px; background: #f3f4f6; margin: 32px 0 24px; }
+    .section-subtitle { font-size: 14px; font-weight: 700; color: #111827; margin: 0; }
+    .mt-10 { margin-top: 16px; }
+
     .skeleton-wrap { background: #fff; border-radius: 12px; overflow: hidden; padding: 12px; }
     .skeleton-row  { height: 48px; background: #f3f4f6; border-radius: 6px; margin-bottom: 6px; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
@@ -219,6 +248,9 @@ export class QueryBuilderComponent {
     language:         [''],
     opt_out_whatsapp: ['' as '' | 'true' | 'false'],
     opt_out_email:    ['' as '' | 'true' | 'false'],
+    in_campaign:      [''],
+    not_in_campaign:  [''],
+    last_used_before: [''],
     page_size:        [100],
   });
 
@@ -234,10 +266,12 @@ export class QueryBuilderComponent {
     if (v.state)                         params.set('state', v.state);
     if (v.tags)                          params.set('tags', v.tags);
     if (v.language)                      params.set('language', v.language);
-    if (v.opt_out_whatsapp === 'true')   params.set('opt_out_whatsapp', 'true');
     if (v.opt_out_whatsapp === 'false')  params.set('opt_out_whatsapp', 'false');
     if (v.opt_out_email === 'true')      params.set('opt_out_email', 'true');
     if (v.opt_out_email === 'false')     params.set('opt_out_email', 'false');
+    if (v.in_campaign)                   params.set('in_campaign', v.in_campaign);
+    if (v.not_in_campaign)               params.set('not_in_campaign', v.not_in_campaign);
+    if (v.last_used_before)              params.set('last_used_before', v.last_used_before);
     return params;
   }
 
@@ -293,6 +327,9 @@ export class QueryBuilderComponent {
         opt_out_whatsapp: v.opt_out_whatsapp === '' ? undefined : v.opt_out_whatsapp === 'true',
         opt_out_email:    v.opt_out_email    === '' ? undefined : v.opt_out_email    === 'true',
         language:         v.language || undefined,
+        in_campaign:      v.in_campaign || undefined,
+        not_in_campaign:  v.not_in_campaign || undefined,
+        last_used_before: v.last_used_before || undefined,
       },
       page_size: v.page_size ?? 100,
       page: 1, // Always start at page 1 on new search
@@ -309,6 +346,7 @@ export class QueryBuilderComponent {
       segment: '', company_name: '', industry: '', city: '', state: '',
       tags: '', tags_any: '', language: '',
       opt_out_whatsapp: '', opt_out_email: '',
+      in_campaign: '', not_in_campaign: '', last_used_before: '',
       page_size: 100,
     });
     this.store.reset();

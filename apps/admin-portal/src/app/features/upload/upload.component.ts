@@ -47,6 +47,7 @@ const STANDARD_FIELDS = [
   'opt_out_whatsapp',
   'opt_out_email',
   'opt_out_call',
+  'source_batch_id',
   'skip',            // skip = ignore this column
 ] as const;
 

@@ -247,13 +247,23 @@ export async function bulkUpsertContacts(inputs: UpsertContactInput[]): Promise<
   // 3. Map uniqueInputs to rows with partial merging
   const rows = uniqueInputs.map((input) => {
     // Priority: Phone match, then Email match
-    const existing = byPhone.get(input.phone) || (input.email ? byEmail.get(input.email) : null);
+    const matchByPhone = byPhone.get(input.phone);
+    const matchByEmail = input.email ? byEmail.get(input.email) : null;
+    const existing = matchByPhone || matchByEmail;
+
+    // Safety: If matchByPhone exists, but input.email belongs to matchByEmail (a different record),
+    // we must clear the email to avoid a UniqueViolation on the update.
+    let finalEmail = input.email !== undefined ? (input.email ?? null) : (existing?.email ?? null);
+    if (matchByPhone && matchByEmail && matchByPhone.id !== matchByEmail.id) {
+      // Cross-link detected! Prioritizing phone match; clearing incoming email to avoid crash.
+      finalEmail = matchByPhone.email; 
+    }
 
     // Merge logic: Use input value if provided, else keep existing DB value, else use default
     return {
       id: existing?.id || undefined, // undefined triggers auto-gen UUID on insert
       phone: input.phone,
-      email: input.email !== undefined ? (input.email ?? null) : (existing?.email ?? null),
+      email: finalEmail,
       name: input.name !== undefined ? (input.name ?? null) : (existing?.name ?? null),
       language: input.language !== undefined ? input.language : (existing?.language ?? 'en'),
       tags: input.tags !== undefined 
@@ -334,6 +344,26 @@ export function streamContactsQuery(filter: ContactFilter): Readable {
   if (filter.opt_out_whatsapp !== undefined) query = query.where('opt_out_whatsapp', filter.opt_out_whatsapp);
   if (filter.opt_out_email    !== undefined) query = query.where('opt_out_email',    filter.opt_out_email);
   if (filter.tags && filter.tags.length > 0) query = query.whereRaw('tags @> ?::text[]', [filter.tags]);
+  if (filter.tags_any && filter.tags_any.length > 0) query = query.whereRaw('tags && ?::text[]', [filter.tags_any]);
+
+  // History-based filters
+  if (filter.in_campaign) {
+    query = query.whereIn('id', db('campaign_history').select('contact_id').where('campaign_name', filter.in_campaign));
+  }
+  if (filter.not_in_campaign) {
+    query = query.whereNotIn('id', db('campaign_history').select('contact_id').where('campaign_name', filter.not_in_campaign));
+  }
+  if (filter.last_used_before) {
+    query = query.whereNotExists(
+      db('campaign_history')
+        .select(1)
+        .whereRaw('campaign_history.contact_id = contacts.id')
+        .where('used_at', '>=', filter.last_used_before)
+    );
+  }
+  if (filter.used_in_types && filter.used_in_types.length > 0) {
+    query = query.whereIn('id', db('campaign_history').select('contact_id').whereIn('campaign_type', filter.used_in_types));
+  }
 
   return query.stream();
 }

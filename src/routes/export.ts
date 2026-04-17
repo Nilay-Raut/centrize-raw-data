@@ -38,6 +38,9 @@ const validateExport = [
   query('opt_out_whatsapp').optional().isIn(['true', 'false']),
   query('opt_out_email').optional().isIn(['true', 'false']),
   query('tags').optional().isString(),
+  query('in_campaign').optional().isString().trim(),
+  query('not_in_campaign').optional().isString().trim(),
+  query('last_used_before').optional().isISO8601().withMessage('last_used_before must be a valid ISO date string'),
 ];
 
 router.get(
@@ -76,8 +79,13 @@ router.get(
     if (q['city']) filter.city = q['city'];
     if (q['state']) filter.state = q['state'];
     if (q['opt_out_whatsapp'] !== undefined) filter.opt_out_whatsapp = q['opt_out_whatsapp'] === 'true';
-    if (q['opt_out_email'] !== undefined) filter.opt_out_email = q['opt_out_email'] === 'true';
+    if (q['opt_out_email'] !== undefined)    filter.opt_out_email = q['opt_out_email'] === 'true';
     if (q['tags']) filter.tags = q['tags'].split(',').map((t) => t.trim()).filter(Boolean);
+
+    // History-based filters
+    if (q['in_campaign'])       filter.in_campaign = q['in_campaign'];
+    if (q['not_in_campaign'])   filter.not_in_campaign = q['not_in_campaign'];
+    if (q['last_used_before'])  filter.last_used_before = q['last_used_before'];
 
     // Pre-flight: verify DB is reachable BEFORE setting headers.
     // Once headers are sent we can no longer return a JSON error to the client.

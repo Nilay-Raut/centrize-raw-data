@@ -30,6 +30,25 @@ const STRIP_NON_DIGITS = /\D/g;
 const VALID_E164 = /^\+\d{7,15}$/;
 
 /**
+ * Normalise an email address.
+ * Returns null if the email is a placeholder (., -, NA, null) or invalid.
+ */
+export function normaliseEmail(raw: string): string | null {
+  if (!raw || raw.trim() === '') return null;
+  const cleaned = raw.trim().toLowerCase();
+  
+  // Strip placeholders that result in unique constraint violations
+  // if multiple rows have the same placeholder.
+  const placeholders = ['.', '-', 'na', 'null', 'none', 'n/a'];
+  if (placeholders.includes(cleaned)) return null;
+
+  // Basic email validation (must contain @)
+  if (!cleaned.includes('@')) return null;
+
+  return cleaned;
+}
+
+/**
  * Normalise a phone number to E.164 format.
  * Defaults to +91 (India) prefix when no country code is present.
  *
@@ -131,15 +150,18 @@ export function normaliseRow(
         contact.phone = value;
         break;
       case 'email':
-        if (value && !['n/a', 'null', 'none', '-'].includes(value.toLowerCase())) {
-          contact.email = value;
-        }
+        const ne = normaliseEmail(value);
+        if (ne) contact.email = ne;
+        else contact.email = undefined;
         break;
       case 'name':
         if (value) contact.name = value;
         break;
       case 'language':
         if (value) contact.language = value;
+        break;
+      case 'source_batch_id':
+        if (value) contact.source_batch_id = value;
         break;
       case 'tags':
         contact.tags = parseTags(value);
@@ -218,6 +240,7 @@ export function normaliseRow(
 
 export class NormaliserService {
   normalisePhone = normalisePhone;
+  normaliseEmail = normaliseEmail;
   parseTags = parseTags;
   parseBoolean = parseBoolean;
   normaliseRow = normaliseRow;
