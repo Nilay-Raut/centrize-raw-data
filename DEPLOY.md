@@ -64,7 +64,7 @@ This will automatically:
 2. Run **database migrations** (creates all tables)
 3. Start the **API server** (`cdp-api` on port 3000 internally)
 4. Start the **BullMQ Worker** for file processing
-5. Build and serve the **Angular Frontend** via Nginx on port 80
+5. Build and serve **both Angular apps** (Admin Portal + Embed Widget) via Nginx on port 80
 
 ---
 
@@ -80,6 +80,7 @@ All services should show `healthy` or `running`:
 NAME           STATUS
 cdp-postgres   Up (healthy)
 cdp-redis      Up (healthy)
+cdp-migrate    Exited (0)        ← migrations complete, this is expected
 cdp-api        Up (healthy)
 cdp-worker     Up
 cdp-frontend   Up
@@ -120,7 +121,10 @@ Edit the config to set your domain:
 ```bash
 sudo nano /etc/nginx/sites-available/cdp-admin
 # Update: server_name admin.yourcompany.com;
-# Update proxy_pass to: http://localhost:80;  (points to Docker frontend)
+# Update proxy_pass to: http://localhost:80;
+# NOTE: The Docker frontend container's internal Nginx already handles /api/ proxying
+# to cdp-api. The host Nginx just forwards everything to localhost:80 — do NOT
+# split /api/ routing here or you will bypass the container's proxy headers.
 ```
 
 Enable the site and reload:
@@ -188,6 +192,7 @@ docker compose -f docker-compose.prod.yml exec postgres \
 
 Visit `https://admin.yourcompany.com` (or `http://your-server-ip`)
 
+**Admin Portal**
 - [ ] Login page loads correctly
 - [ ] Login with admin credentials works
 - [ ] Upload a small test CSV (10 rows)
@@ -195,6 +200,14 @@ Visit `https://admin.yourcompany.com` (or `http://your-server-ip`)
 - [ ] Query page returns results
 - [ ] All contact columns are visible (scroll horizontally)
 - [ ] CSV Export works (file downloads)
+
+**Embed Widget** (served at `/widget/` with CORS open for 3rd-party embedding)
+```bash
+curl -I http://your-server-ip/widget/main.js
+# Expected: HTTP 200, Content-Type: application/javascript
+```
+- [ ] `main.js` returns HTTP 200
+- [ ] Response includes `Access-Control-Allow-Origin: *` header
 
 ---
 
